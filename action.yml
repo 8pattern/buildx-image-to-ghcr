@@ -1,0 +1,77 @@
+name: 'Build images by buildx and push them to ghcr.io'
+description: 'Supports custom Dockerfile name, tags, build context, etc.'
+inputs:
+  token:
+    description: 'token to push Docker image to GitHub Packages'
+    required: true
+  image-name:
+    description: 'Docker Image name'
+    required: true
+  image-tag:
+    description: 'Docker Image tag'
+    default: "latest"
+    required: false
+  dockerfile:
+    description: 'Dockerfile name'
+    default: "Dockerfile"
+    required: false
+  build-context:
+    description: 'Path to build context'
+    default: "."
+    required: false
+  build-platform:
+    description: 'Target build platforms'
+    default: "linux/amd64,linux/386,linux/arm64,linux/arm/v7,linux/arm/v6,linux/arm/v8"
+    required: false
+runs:
+  using: "composite"
+  steps:
+    - name: REPOSITORY
+      id: repository
+      run: |
+        IMAGE=$(echo ghcr.io/${{ github.REPOSITORY }}/${{ inputs.image-name }} | tr '[:upper:]' '[:lower:]')
+        TAG=$(echo ${{ inputs.image-tag }} | tr '[:upper:]' '[:lower:]')
+        echo "::set-output name=image::$IMAGE"
+        echo "::set-output name=tag::$TAG"
+      shell: bash
+
+    - name: Source checkout
+      uses: actions/checkout@v2.4.0 
+
+    - name: Setup QEMU
+      id: qemu
+      uses: docker/setup-qemu-action@v1.2.0
+    
+    - name: Setup Buildx
+      id: buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Set Docker metadata
+      id: docker_meta
+      uses: docker/metadata-action@v3
+      with:
+        images: ${{ steps.repository.outputs.image }}
+        labels: |
+          org.opencontainers.image.version=${{ steps.repository.outputs.tag }}
+          org.opencontainers.image.revision=${{ github.sha }}
+          org.opencontainers.image.title=${{ steps.repository.outputs.image }}
+          
+    - name: GitHub login
+      uses: docker/login-action@v1.12.0
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        # username: publisher
+        password: ${{ inputs.github-token }}
+
+    - name: Build and push
+      uses: docker/build-push-action@v2.7.0
+      with:
+        file: ${{ inputs.dockerfile }}
+        push: true
+        context: ${{ inputs.build-context }}
+        platforms: ${{ inputs.build-platform }}
+        labels: ${{ steps.docker_meta.outputs.labels }}
+        tags: |
+          ghcr.io/${{ steps.repository.outputs.image }}:${{ steps.repository.outputs.tag }}
+          ghcr.io/${{ steps.repository.outputs.image }}:latest
