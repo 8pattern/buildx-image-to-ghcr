@@ -8,6 +8,9 @@ Build images by buildx and push them to ghcr.io
 ```yaml
   build-and-publish:
     runs-on: ubuntu-latest
+      - name: Source checkout
+        uses: actions/checkout@v2
+
       - name: Build and Publish Image
         uses: xczpw/buildx-image-to-ghcr@main
         with:
