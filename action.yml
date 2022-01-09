@@ -62,7 +62,7 @@ runs:
         registry: ghcr.io
         username: ${{ github.actor }}
         # username: publisher
-        password: ${{ inputs.github-token }}
+        password: ${{ inputs.token }}
 
     - name: Build and push
       uses: docker/build-push-action@v2.7.0
